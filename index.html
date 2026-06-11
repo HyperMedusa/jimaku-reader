@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>字幕リーダー</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=BIZ+UDPGothic:wght@400;700&family=M+PLUS+Rounded+1c:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <meta name="theme-color" content="#0d0d12">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="字幕リーダー">
+  <meta name="description" content="文章を映画字幕のように2行ずつ表示して視覚的に読めるアプリ">
+</head>
+<body>
+
+  <!-- ホーム画面 -->
+  <div id="home-screen">
+    <header class="app-header">
+      <h1 class="app-title">字幕リーダー</h1>
+      <p class="app-desc">文章を映画字幕のように2行ずつ表示して、ゆっくり読めるアプリ</p>
+    </header>
+
+    <main class="home-main">
+
+      <!-- 入力: テキスト貼り付け -->
+      <section class="input-card">
+        <h2 class="card-label">テキストを貼り付け</h2>
+        <textarea
+          id="input-text"
+          rows="6"
+          placeholder="ここに文章を貼り付け"
+        ></textarea>
+      </section>
+
+      <!-- 入力: URL -->
+      <section class="input-card">
+        <h2 class="card-label">URLから読み込む</h2>
+        <div class="url-row">
+          <input
+            type="url"
+            id="input-url"
+            placeholder="https://..."
+          >
+          <button id="btn-load-url">読み込む</button>
+        </div>
+        <p class="card-hint">X(Twitter)のポストURLもOK</p>
+      </section>
+
+      <!-- 入力: ファイル -->
+      <section class="input-card">
+        <h2 class="card-label">ファイルを開く</h2>
+        <div id="drop-zone">
+          <span class="drop-zone-text">ファイルをドラッグ＆ドロップ<br>または</span>
+          <label class="file-label" for="input-file">ファイルを選ぶ</label>
+          <input
+            type="file"
+            id="input-file"
+            accept=".txt,.md,.pdf"
+          >
+          <p class="drop-zone-hint">.txt / .md / .pdf</p>
+        </div>
+      </section>
+
+      <!-- 設定パネル -->
+      <section class="settings-card">
+        <h2 class="card-label">設定</h2>
+
+        <div class="setting-row">
+          <label for="setting-speed">速度</label>
+          <div class="range-wrap">
+            <input
+              type="range"
+              id="setting-speed"
+              min="0.5"
+              max="3"
+              step="0.25"
+              value="1"
+            >
+          </div>
+          <span id="speed-value" class="range-val">1.0×</span>
+        </div>
+
+        <div class="setting-row">
+          <label for="setting-fontsize">文字サイズ</label>
+          <div class="range-wrap">
+            <input
+              type="range"
+              id="setting-fontsize"
+              min="20"
+              max="64"
+              step="2"
+              value="36"
+            >
+          </div>
+          <span id="fontsize-value" class="range-val">36px</span>
+        </div>
+
+        <div class="setting-row">
+          <label for="setting-font">フォント</label>
+          <select id="setting-font">
+            <option value="ud" selected>BIZ UDPGothic（UD）</option>
+            <option value="rounded">M PLUS Rounded 1c</option>
+            <option value="serif">明朝（serif）</option>
+            <option value="system">システムフォント</option>
+          </select>
+        </div>
+      </section>
+
+      <!-- 開始ボタン -->
+      <button id="btn-start">▶ 読む</button>
+
+    </main>
+  </div>
+
+  <!-- プレイヤー画面 -->
+  <div id="player-screen" hidden>
+
+    <!-- 字幕エリア -->
+    <div id="subtitle-area">
+      <div id="subtitle"></div>
+      <div id="subtitle-fill"></div>
+    </div>
+
+    <!-- コントロールバー -->
+    <div class="player-controls">
+
+      <div class="player-progress-row">
+        <div id="progress-bar">
+          <div id="progress-fill"></div>
+        </div>
+        <span id="chunk-counter">0 / 0</span>
+      </div>
+
+      <div class="player-btn-row">
+        <button id="btn-prev" aria-label="前へ">⏮</button>
+        <button id="btn-play" aria-label="再生/停止">⏸</button>
+        <button id="btn-next" aria-label="次へ">⏭</button>
+      </div>
+
+      <div class="player-settings-row">
+        <div class="player-setting">
+          <label for="player-speed">速度</label>
+          <input
+            type="range"
+            id="player-speed"
+            min="0.5"
+            max="3"
+            step="0.25"
+            value="1"
+          >
+        </div>
+        <div class="player-setting">
+          <label for="player-fontsize">サイズ</label>
+          <input
+            type="range"
+            id="player-fontsize"
+            min="20"
+            max="64"
+            step="2"
+            value="36"
+          >
+        </div>
+        <button id="btn-exit" aria-label="終了">✕</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- トースト通知 -->
+  <div id="toast" hidden></div>
+
+  <!-- ローディングオーバーレイ -->
+  <div id="loading" hidden>
+    <div class="loading-inner">
+      <div class="spinner"></div>
+      <p>読み込み中…</p>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+  <script>if ('serviceWorker' in navigator) { addEventListener('load', () => navigator.serviceWorker.register('./sw.js')); }</script>
+</body>
+</html>
