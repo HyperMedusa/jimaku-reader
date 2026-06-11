@@ -27,35 +27,19 @@ function splitSentences(paragraph) {
     .filter(Boolean);
 }
 
-// 長すぎる一文を、読点・記号・スペースの位置で budget 以下の断片に割る
+// 長すぎる一文を、読点・記号（なければ単語境界）で「量がほぼ揃った」断片に割る
 function splitLongSentence(sentence, budget) {
-  // 第1候補: 読点・中点・セミコロン等の直後で区切る
-  const parts = sentence.split(/(?<=[、，,;；：:・…―—])/).filter(Boolean);
-  const pieces = [];
-  let buf = '';
-  for (const part of parts) {
-    if (buf && textWeight(buf) + textWeight(part) > budget) {
-      pieces.push(buf);
-      buf = part;
-    } else {
-      buf += part;
-    }
-  }
-  if (buf) pieces.push(buf);
-
-  // まだ budget を超える断片は単語境界（なければ強制スライス）で割る
-  const result = [];
-  for (const piece of pieces) {
-    if (textWeight(piece) <= budget) {
-      result.push(piece);
-      continue;
-    }
-    result.push(...splitByWords(piece, budget));
-  }
-  return result;
+  const frags = sentence
+    .split(/(?<=[、，,;；：:・…―—])/)
+    .filter((f) => f.length)
+    .flatMap((f) =>
+      textWeight(f) <= budget ? [f] : packBalanced(wordsOf(f, budget), budget)
+    );
+  return packBalanced(frags, budget);
 }
 
-function splitByWords(text, budget) {
+// テキストを単語列に分解（異常に長い連続文字列は強制スライス）
+function wordsOf(text, budget) {
   let words;
   if (typeof Intl !== 'undefined' && Intl.Segmenter) {
     const seg = new Intl.Segmenter('ja', { granularity: 'word' });
@@ -63,31 +47,58 @@ function splitByWords(text, budget) {
   } else {
     words = text.split('');
   }
+  return words.flatMap((w) => (textWeight(w) <= budget ? [w] : sliceHard(w, budget)));
+}
+
+function sliceHard(text, budget) {
+  const out = [];
+  let s = '';
+  for (const ch of text) {
+    if (s && textWeight(s + ch) > budget) {
+      out.push(s);
+      s = ch;
+    } else s += ch;
+  }
+  if (s) out.push(s);
+  return out;
+}
+
+// 単位列を「量がほぼ揃った塊」に詰める（Apple Music歌詞風の均等割り）。
+// 合計量から必要塊数 k = ceil(合計/budget) を先に決め、1塊の目標量 = 合計/k に
+// 最も近づく位置で区切る。貪欲詰めで起きる「最後に1文字だけ余る」事故を防ぐ。
+function packBalanced(units, budget) {
+  if (!units.length) return [];
+  const weights = units.map(textWeight);
+  const total = weights.reduce((a, b) => a + b, 0);
+  const target = total / Math.max(1, Math.ceil(total / budget));
   const out = [];
   let buf = '';
-  for (const w of words) {
-    if (buf && textWeight(buf) + textWeight(w) > budget) {
+  let w = 0;
+  for (let i = 0; i < units.length; i++) {
+    const uw = weights[i];
+    const overshoots = w + uw > budget;
+    const fartherFromTarget = Math.abs(w + uw - target) > Math.abs(w - target);
+    if (buf && (overshoots || fartherFromTarget)) {
       out.push(buf);
-      buf = w;
-    } else {
-      buf += w;
+      buf = '';
+      w = 0;
     }
+    buf = joinUnits(buf, units[i]);
+    w += uw;
   }
   if (buf) out.push(buf);
-  // 単語1つで budget 超え（異常に長い連続文字列）は強制スライス
-  return out.flatMap((p) => {
-    if (textWeight(p) <= budget) return [p];
-    const sliced = [];
-    let s = '';
-    for (const ch of p) {
-      if (textWeight(s + ch) > budget) {
-        sliced.push(s);
-        s = ch;
-      } else s += ch;
-    }
-    if (s) sliced.push(s);
-    return sliced;
-  });
+  return out;
+}
+
+// 連結時、英数字同士（CJK以外）の境界にだけ半角スペースを補う
+function joinUnits(a, b) {
+  if (!a) return b;
+  const tail = a[a.length - 1];
+  const head = b[0];
+  if (!CJK_RE.test(tail) && !CJK_RE.test(head) && tail !== ' ' && head !== ' ') {
+    return a + ' ' + b;
+  }
+  return a + b;
 }
 
 // ---------------------------------------------------------------
@@ -105,20 +116,11 @@ export function chunkText(text, { charsPerLine, maxLines = 2 }) {
 
   const chunks = [];
   for (const para of paragraphs) {
-    const sentences = splitSentences(para).flatMap((s) =>
+    // 文単位に分け、長すぎる文は先に均等な断片へ。段落はまたがない
+    const units = splitSentences(para).flatMap((s) =>
       textWeight(s) > budget ? splitLongSentence(s, budget) : [s]
     );
-    // 短い文は budget まで貪欲に詰める（段落はまたがない）
-    let buf = '';
-    for (const s of sentences) {
-      if (buf && textWeight(buf) + textWeight(s) > budget) {
-        chunks.push(buf);
-        buf = s;
-      } else {
-        buf = buf ? buf + s : s;
-      }
-    }
-    if (buf) chunks.push(buf);
+    chunks.push(...packBalanced(units, budget));
   }
   return chunks.map((c) => c.trim()).filter(Boolean);
 }
