@@ -25,10 +25,11 @@ const FONT_MAP = {
 // ---------------------------------------------------------------
 // 設定（localStorageに保存）
 // ---------------------------------------------------------------
-const settings = Object.assign(
-  { speed: 1, fontSize: 36, font: 'ud' },
-  JSON.parse(localStorage.getItem('jimaku-settings') || '{}')
-);
+const saved = JSON.parse(localStorage.getItem('jimaku-settings') || '{}');
+// v2: デフォルトフォントを明朝に変更。旧デフォルト(ud)のまま使っていた人は一度だけ明朝へ移行
+if (saved.v !== 2 && (!saved.font || saved.font === 'ud')) saved.font = 'serif';
+saved.v = 2;
+const settings = Object.assign({ speed: 1, fontSize: 36, font: 'serif' }, saved);
 
 function applySettings() {
   document.documentElement.style.setProperty('--subtitle-size', settings.fontSize + 'px');
