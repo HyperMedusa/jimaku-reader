@@ -103,10 +103,11 @@ function joinUnits(a, b) {
 
 // ---------------------------------------------------------------
 // チャンク分割（公開API）
-// text → 「最大 maxLines 行に収まる字幕テキスト」の配列
+// 1チャンク = 1文（行数は表示側で自由に折り返す）。
+// maxLines は「画面に収まらないほど長い文」を均等分割する安全上限。
 // ---------------------------------------------------------------
-export function chunkText(text, { charsPerLine, maxLines = 2 }) {
-  // 2行ぴったりだと折り返し誤差ではみ出すため 9割で見積もる
+export function chunkText(text, { charsPerLine, maxLines = 4 }) {
+  // ぴったりだと折り返し誤差ではみ出すため 9割で見積もる
   const budget = Math.max(8, charsPerLine * maxLines * 0.9);
   const paragraphs = text
     .replace(/\r\n?/g, '\n')
@@ -116,11 +117,10 @@ export function chunkText(text, { charsPerLine, maxLines = 2 }) {
 
   const chunks = [];
   for (const para of paragraphs) {
-    // 文単位に分け、長すぎる文は先に均等な断片へ。段落はまたがない
-    const units = splitSentences(para).flatMap((s) =>
-      textWeight(s) > budget ? splitLongSentence(s, budget) : [s]
-    );
-    chunks.push(...packBalanced(units, budget));
+    for (const s of splitSentences(para)) {
+      if (textWeight(s) > budget) chunks.push(...splitLongSentence(s, budget));
+      else chunks.push(s);
+    }
   }
   return chunks.map((c) => c.trim()).filter(Boolean);
 }

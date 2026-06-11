@@ -44,7 +44,9 @@ self.addEventListener('fetch', (event) => {
   if (request.method !== 'GET') return;
 
   event.respondWith(
-    fetch(request)
+    // cache:'no-cache' = ブラウザHTTPキャッシュを鵜呑みにせず、毎回サーバーに
+    // 鮮度確認（変更なしなら304で軽い）。アプリ更新が確実に届くようにする
+    fetch(request, { cache: 'no-cache' })
       .then((response) => {
         if (response && response.status === 200) {
           const clone = response.clone();

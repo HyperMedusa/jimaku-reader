@@ -88,7 +88,8 @@ function computeCharsPerLine() {
 }
 
 function buildChunks(text) {
-  const chunks = chunkText(text, { charsPerLine: computeCharsPerLine(), maxLines: 2 });
+  // 1画面=1文。maxLinesは長文を分割する安全上限（最大4行ぶん）
+  const chunks = chunkText(text, { charsPerLine: computeCharsPerLine(), maxLines: 4 });
   chunkOffsets = [];
   let offset = 0;
   for (const c of chunks) {
